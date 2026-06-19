@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Лабиринт — Labyrinth</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a12; font-family: 'Segoe UI', system-ui, sans-serif; }
+    canvas { display: block; }
+    #overlay {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; pointer-events: none;
+      background: rgba(0, 0, 0, 0.55); opacity: 0; transition: opacity 0.4s ease;
+    }
+    #overlay.visible { opacity: 1; pointer-events: auto; }
+    #overlay h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem); color: #4eff91;
+      text-shadow: 0 0 30px rgba(78, 255, 145, 0.8), 0 0 60px rgba(78, 255, 145, 0.4);
+      letter-spacing: 0.08em;
+    }
+    #overlay p { margin-top: 1rem; color: #aaa; font-size: 1.1rem; }
+    #hud {
+      position: fixed; top: 16px; left: 16px; color: #8ab4ff;
+      font-size: 0.9rem; line-height: 1.6; text-shadow: 0 0 8px rgba(100, 160, 255, 0.5);
+      pointer-events: none; user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">WASD / Стрелки — движение<br>Дойдите до зелёного финиша</div>
+  <div id="overlay">
+    <h1>Победа!</h1>
+    <p>Игра перезапускается...</p>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // ─── Лабиринт: 1 = стена, 0 = проход, 2 = старт, 3 = финиш ───
+    const MAZE = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,2,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1],
+      [1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1],
+      [1,0,1,1,1,1,1,1,0,1,1,1,1,1,0,1,1],
+      [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+      [1,1,1,0,1,1,0,1,1,1,0,1,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,1],
+      [1,0,1,1,1,0,1,1,0,1,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+      [1,1,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+      [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
+
+    const CONFIG = {
+      cellSize: 2,
+      wallHeight: 2.5,
+      playerRadius: 0.35,
+      playerSpeed: 5,
+      cameraHeight: 7,
+      cameraDistance: 8,
+      cameraSmooth: 0.08,
+      finishReachDist: 0.9,
+      restartDelay: 2500,
+    };
+
+    // ─── Состояние ───
+    const keys = {};
+    let won = false;
+    let startPos = { x: 0, z: 0 };
+    let finishPos = { x: 0, z: 0 };
+    const walls = [];
+
+    // ─── DOM ───
+    const overlay = document.getElementById('overlay');
+
+    // ─── Сцена ───
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a12);
+    scene.fog = new THREE.Fog(0x0a0a12, 25, 55);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // ─── Освещение ───
+    const ambient = new THREE.AmbientLight(0x404060, 0.45);
+    scene.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xfff0dd, 0.85);
+    sun.position.set(12, 22, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 60;
+    const shadowRange = 30;
+    sun.shadow.camera.left = -shadowRange;
+    sun.shadow.camera.right = shadowRange;
+    sun.shadow.camera.top = shadowRange;
+    sun.shadow.camera.bottom = -shadowRange;
+    sun.shadow.bias = -0.0008;
+    scene.add(sun);
+    scene.add(sun.target);
+
+    const rimLight = new THREE.DirectionalLight(0x6688ff, 0.25);
+    rimLight.position.set(-8, 6, -12);
+    scene.add(rimLight);
+
+    // ─── Пол ───
+    const rows = MAZE.length;
+    const cols = MAZE[0].length;
+    const mazeWidth = cols * CONFIG.cellSize;
+    const mazeDepth = rows * CONFIG.cellSize;
+    const offsetX = -mazeWidth / 2 + CONFIG.cellSize / 2;
+    const offsetZ = -mazeDepth / 2 + CONFIG.cellSize / 2;
+
+    const floorGeo = new THREE.PlaneGeometry(mazeWidth + 4, mazeDepth + 4);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x12121c,
+      roughness: 0.85,
+      metalness: 0.15,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(
+      Math.max(mazeWidth, mazeDepth) + 2,
+      Math.max(cols, rows) + 1,
+      0x1a2a44,
+      0x111822
+    );
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // ─── Материалы ───
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0x6a6a78,
+      roughness: 0.35,
+      metalness: 0.55,
+      emissive: 0x222233,
+      emissiveIntensity: 0.35,
+    });
+
+    const wallEdgeMat = new THREE.LineBasicMaterial({ color: 0x99bbff, transparent: true, opacity: 0.55 });
+
+    const finishMat = new THREE.MeshStandardMaterial({
+      color: 0x2ecc71,
+      emissive: 0x1a8844,
+      emissiveIntensity: 0.9,
+      roughness: 0.3,
+      metalness: 0.4,
+    });
+
+    // ─── Построение лабиринта ───
+    function cellToWorld(col, row) {
+      return {
+        x: col * CONFIG.cellSize + offsetX,
+        z: row * CONFIG.cellSize + offsetZ,
+      };
+    }
+
+    function buildMaze() {
+      const wallGeo = new THREE.BoxGeometry(CONFIG.cellSize, CONFIG.wallHeight, CONFIG.cellSize);
+      const edgesGeo = new THREE.EdgesGeometry(wallGeo);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const cell = MAZE[row][col];
+          const { x, z } = cellToWorld(col, row);
+
+          if (cell === 1) {
+            const wall = new THREE.Mesh(wallGeo, wallMat);
+            wall.position.set(x, CONFIG.wallHeight / 2, z);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            scene.add(wall);
+
+            const edges = new THREE.LineSegments(edgesGeo, wallEdgeMat);
+            edges.position.copy(wall.position);
+            scene.add(edges);
+
+            walls.push({
+              minX: x - CONFIG.cellSize / 2,
+              maxX: x + CONFIG.cellSize / 2,
+              minZ: z - CONFIG.cellSize / 2,
+              maxZ: z + CONFIG.cellSize / 2,
+            });
+          } else if (cell === 2) {
+            startPos = { x, z };
+          } else if (cell === 3) {
+            finishPos = { x, z };
+          }
+        }
+      }
+    }
+
+    buildMaze();
+
+    // ─── Финиш ───
+    const finishGroup = new THREE.Group();
+    const finishBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.7, 1.2, 16),
+      finishMat
+    );
+    finishBase.position.y = 0.6;
+    finishBase.castShadow = true;
+    finishGroup.add(finishBase);
+
+    const finishGlow = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.75, 0.75, 0.08, 24),
+      new THREE.MeshStandardMaterial({
+        color: 0x4eff91,
+        emissive: 0x4eff91,
+        emissiveIntensity: 1.2,
+        transparent: true,
+        opacity: 0.7,
+      })
+    );
+    finishGlow.position.y = 0.04;
+    finishGroup.add(finishGlow);
+
+    finishGroup.position.set(finishPos.x, 0, finishPos.z);
+    scene.add(finishGroup);
+
+    const finishLight = new THREE.PointLight(0x4eff91, 1.2, 6);
+    finishLight.position.set(0, 1.5, 0);
+    finishGroup.add(finishLight);
+
+    // ─── Игрок ───
+    const player = new THREE.Group();
+    const playerSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(CONFIG.playerRadius, 32, 32),
+      new THREE.MeshStandardMaterial({
+        color: 0x2288ff,
+        emissive: 0x1166ff,
+        emissiveIntensity: 1.1,
+        roughness: 0.2,
+        metalness: 0.3,
+      })
+    );
+    playerSphere.castShadow = true;
+    player.add(playerSphere);
+
+    const playerLight = new THREE.PointLight(0x3399ff, 1.5, 8);
+    player.add(playerLight);
+
+    const playerGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(CONFIG.playerRadius * 1.6, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x2288ff, transparent: true, opacity: 0.12 })
+    );
+    player.add(playerGlow);
+
+    scene.add(player);
+
+    // ─── Камера (цель для сглаживания) ───
+    const cameraTarget = new THREE.Vector3();
+    const cameraPos = new THREE.Vector3();
+
+    // ─── Утилиты ───
+    function resetPlayer() {
+      player.position.set(startPos.x, CONFIG.playerRadius, startPos.z);
+      won = false;
+      overlay.classList.remove('visible');
+    }
+
+    function showVictory() {
+      if (won) return;
+      won = true;
+      overlay.classList.add('visible');
+      setTimeout(() => resetPlayer(), CONFIG.restartDelay);
+    }
+
+    function resolveCircleAABB(px, pz, radius, box) {
+      const closestX = Math.max(box.minX, Math.min(px, box.maxX));
+      const closestZ = Math.max(box.minZ, Math.min(pz, box.maxZ));
+      const dx = px - closestX;
+      const dz = pz - closestZ;
+      const distSq = dx * dx + dz * dz;
+
+      if (distSq >= radius * radius) return { x: px, z: pz };
+
+      if (distSq < 1e-8) {
+        const toLeft = px - box.minX;
+        const toRight = box.maxX - px;
+        const toTop = pz - box.minZ;
+        const toBottom = box.maxZ - pz;
+        const min = Math.min(toLeft, toRight, toTop, toBottom);
+
+        if (min === toLeft) return { x: box.minX - radius, z: pz };
+        if (min === toRight) return { x: box.maxX + radius, z: pz };
+        if (min === toTop) return { x: px, z: box.minZ - radius };
+        return { x: px, z: box.maxZ + radius };
+      }
+
+      const dist = Math.sqrt(distSq);
+      const overlap = radius - dist;
+      const nx = dx / dist;
+      const nz = dz / dist;
+      return { x: px + nx * overlap, z: pz + nz * overlap };
+    }
+
+    function movePlayer(dx, dz, dt) {
+      if (won) return;
+
+      let newX = player.position.x + dx * CONFIG.playerSpeed * dt;
+      let newZ = player.position.z + dz * CONFIG.playerSpeed * dt;
+
+      const r = CONFIG.playerRadius;
+      for (let i = 0; i < walls.length; i++) {
+        const resolved = resolveCircleAABB(newX, newZ, r, walls[i]);
+        newX = resolved.x;
+        newZ = resolved.z;
+      }
+
+      const halfW = mazeWidth / 2 - r;
+      const halfD = mazeDepth / 2 - r;
+      newX = Math.max(-halfW, Math.min(halfW, newX));
+      newZ = Math.max(-halfD, Math.min(halfD, newZ));
+
+      player.position.x = newX;
+      player.position.z = newZ;
+
+      const fdx = finishPos.x - newX;
+      const fdz = finishPos.z - newZ;
+      if (Math.sqrt(fdx * fdx + fdz * fdz) < CONFIG.finishReachDist) {
+        showVictory();
+      }
+    }
+
+    function updateCamera() {
+      const px = player.position.x;
+      const pz = player.position.z;
+
+      const desiredCamX = px;
+      const desiredCamY = CONFIG.cameraHeight;
+      const desiredCamZ = pz + CONFIG.cameraDistance;
+
+      cameraPos.lerp(
+        new THREE.Vector3(desiredCamX, desiredCamY, desiredCamZ),
+        CONFIG.cameraSmooth
+      );
+      cameraTarget.lerp(
+        new THREE.Vector3(px, CONFIG.playerRadius, pz),
+        CONFIG.cameraSmooth
+      );
+
+      camera.position.copy(cameraPos);
+      camera.lookAt(cameraTarget);
+      sun.target.position.set(px, 0, pz);
+    }
+
+    function getInputDirection() {
+      let dx = 0;
+      let dz = 0;
+      if (keys['ArrowUp'] || keys['KeyW']) dz -= 1;
+      if (keys['ArrowDown'] || keys['KeyS']) dz += 1;
+      if (keys['ArrowLeft'] || keys['KeyA']) dx -= 1;
+      if (keys['ArrowRight'] || keys['KeyD']) dx += 1;
+
+      const len = Math.hypot(dx, dz);
+      if (len > 0) {
+        dx /= len;
+        dz /= len;
+      }
+      return { dx, dz };
+    }
+
+    // ─── События ───
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ─── Инициализация ───
+    resetPlayer();
+    camera.position.set(startPos.x, CONFIG.cameraHeight, startPos.z + CONFIG.cameraDistance);
+    camera.lookAt(startPos.x, CONFIG.playerRadius, startPos.z);
+    cameraPos.copy(camera.position);
+    cameraTarget.set(startPos.x, CONFIG.playerRadius, startPos.z);
+
+    // ─── Игровой цикл ───
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      const { dx, dz } = getInputDirection();
+      movePlayer(dx, dz, dt);
+      updateCamera();
+
+      finishGlow.rotation.y += dt * 1.5;
+      finishBase.position.y = 0.6 + Math.sin(clock.elapsedTime * 2.5) * 0.08;
+      playerGlow.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.08);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

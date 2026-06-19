@@ -13,215 +13,645 @@
       width: 100%; height: 100%; height: 100dvh;
       overflow: hidden; background: #0a0a12;
       font-family: 'Segoe UI', system-ui, sans-serif;
-      touch-action: none; overscroll-behavior: none;
+      touch-action: manipulation; overscroll-behavior: none;
       -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+      color: #e8eeff;
     }
     canvas { display: block; width: 100%; height: 100%; }
-    #overlay {
-      position: fixed; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; pointer-events: none;
-      background: rgba(0, 0, 0, 0.55); opacity: 0; transition: opacity 0.4s ease;
+
+    .screen {
+      position: fixed; inset: 0; z-index: 20;
+      display: none; flex-direction: column; align-items: center;
+      background: radial-gradient(ellipse at 50% 0%, #141a2e 0%, #0a0a12 70%);
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      overflow-y: auto;
     }
-    #overlay.visible { opacity: 1; pointer-events: auto; }
-    #overlay h1 {
-      font-size: clamp(2.5rem, 8vw, 5rem); color: #4eff91;
-      text-shadow: 0 0 30px rgba(78, 255, 145, 0.8), 0 0 60px rgba(78, 255, 145, 0.4);
-      letter-spacing: 0.08em;
+    .screen.active { display: flex; }
+
+    .logo { font-size: clamp(2rem, 7vw, 3.2rem); font-weight: 700; margin: 2rem 0 0.5rem;
+      background: linear-gradient(135deg, #66aaff, #4eff91); -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent; background-clip: text; }
+    .subtitle { color: #8899bb; margin-bottom: 2rem; text-align: center; font-size: 0.95rem; }
+
+    .card {
+      width: min(420px, 100%); background: rgba(20, 28, 48, 0.85);
+      border: 1px solid rgba(100, 140, 220, 0.25); border-radius: 16px;
+      padding: 1.5rem; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
-    #overlay p { margin-top: 1rem; color: #aaa; font-size: 1.1rem; }
+    label { display: block; color: #8ab4ff; font-size: 0.85rem; margin-bottom: 0.5rem; }
+    input[type="text"] {
+      width: 100%; padding: 0.85rem 1rem; border-radius: 10px; border: 1px solid rgba(100,140,220,0.35);
+      background: rgba(10,14,24,0.8); color: #fff; font-size: 1rem; outline: none;
+    }
+    input[type="text"]:focus { border-color: #4488ff; box-shadow: 0 0 0 3px rgba(68,136,255,0.2); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.75rem 1.25rem; border: none; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: linear-gradient(135deg, #3388ff, #2266cc); color: #fff; width: 100%; margin-top: 1rem; }
+    .btn-secondary { background: rgba(60,80,120,0.5); color: #ccdfff; border: 1px solid rgba(100,140,200,0.3); }
+    .btn-ghost { background: transparent; color: #8ab4ff; border: 1px solid rgba(100,140,200,0.25); }
+    .btn-sm { padding: 0.5rem 0.85rem; font-size: 0.82rem; }
+
+    .level-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: 10px; width: min(520px, 100%); margin: 1rem 0;
+    }
+    .level-btn {
+      aspect-ratio: 1; border-radius: 12px; border: 1px solid rgba(100,140,220,0.3);
+      background: rgba(30,45,75,0.6); color: #cce0ff; font-weight: 700; font-size: 1.1rem;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; transition: background 0.15s, border-color 0.15s;
+    }
+    .level-btn .stars { font-size: 0.6rem; color: #ffd700; }
+    .level-btn.unlocked:hover { background: rgba(50,90,160,0.5); border-color: #4488ff; }
+    .level-btn.locked { opacity: 0.35; cursor: not-allowed; }
+    .level-btn.best { border-color: #4eff91; box-shadow: 0 0 12px rgba(78,255,145,0.25); }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 0.5rem; }
+    .player-tag { color: #4eff91; font-weight: 600; margin-bottom: 0.75rem; }
+
+    #screen-game { display: none; padding: 0; overflow: hidden; z-index: 1; }
+    #screen-game.active { display: block; }
+    .screen:not(#screen-game).active { z-index: 20; }
+
     #hud {
-      position: fixed;
-      top: max(12px, env(safe-area-inset-top));
-      left: max(12px, env(safe-area-inset-left));
-      color: #8ab4ff; font-size: 0.85rem; line-height: 1.5;
-      text-shadow: 0 0 8px rgba(100, 160, 255, 0.5);
-      pointer-events: none; max-width: 70%;
+      position: fixed; top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left));
+      color: #8ab4ff; font-size: 0.82rem; line-height: 1.5; text-shadow: 0 0 8px rgba(100,160,255,0.5);
+      pointer-events: none; z-index: 5; max-width: 65%;
     }
+    #hud .score-line { color: #ffd966; }
+
+    #btn-back {
+      position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+      z-index: 6;
+    }
+
     #joystick {
-      position: fixed;
-      left: max(20px, env(safe-area-inset-left));
+      position: fixed; left: max(20px, env(safe-area-inset-left));
       bottom: max(24px, env(safe-area-inset-bottom));
-      width: 130px; height: 130px;
-      display: none; touch-action: none; z-index: 10;
+      width: 130px; height: 130px; display: none; touch-action: none; z-index: 10;
     }
     body.mobile #joystick { display: block; }
     #joystick-base {
       position: absolute; inset: 0; border-radius: 50%;
-      background: rgba(30, 50, 90, 0.35);
-      border: 2px solid rgba(120, 170, 255, 0.35);
-      box-shadow: 0 0 20px rgba(50, 100, 200, 0.2);
+      background: rgba(30,50,90,0.35); border: 2px solid rgba(120,170,255,0.35);
     }
     #joystick-thumb {
-      position: absolute; left: 50%; top: 50%;
-      width: 52px; height: 52px; margin: -26px 0 0 -26px;
-      border-radius: 50%;
-      background: rgba(50, 130, 255, 0.55);
-      border: 2px solid rgba(150, 200, 255, 0.7);
-      box-shadow: 0 0 16px rgba(50, 130, 255, 0.5);
-      transform: translate(0, 0);
-      will-change: transform;
+      position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
+      border-radius: 50%; background: rgba(50,130,255,0.55);
+      border: 2px solid rgba(150,200,255,0.7); transform: translate(0,0); will-change: transform;
     }
+
+    #overlay {
+      position: fixed; inset: 0; z-index: 15; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; pointer-events: none;
+      background: rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.35s ease;
+    }
+    #overlay.visible { opacity: 1; pointer-events: auto; }
+    #overlay h1 { font-size: clamp(2rem, 7vw, 3.5rem); color: #4eff91;
+      text-shadow: 0 0 30px rgba(78,255,145,0.7); }
+    #overlay .score-big { font-size: clamp(1.5rem, 5vw, 2.2rem); color: #ffd966; margin: 0.75rem 0; }
+    #overlay p { color: #aaa; margin: 0.25rem 0; }
+    #overlay .overlay-btns { display: flex; gap: 10px; margin-top: 1.25rem; flex-wrap: wrap; justify-content: center; }
+
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; justify-content: center; }
+    .tab { padding: 0.45rem 0.75rem; border-radius: 8px; border: 1px solid rgba(100,140,200,0.3);
+      background: rgba(30,45,70,0.5); color: #aac; font-size: 0.8rem; cursor: pointer; }
+    .tab.active { background: rgba(50,100,200,0.5); color: #fff; border-color: #4488ff; }
+
+    .lb-table { width: min(560px, 100%); border-collapse: collapse; font-size: 0.85rem; }
+    .lb-table th { text-align: left; padding: 0.5rem; color: #8ab4ff; border-bottom: 1px solid rgba(100,140,200,0.25); }
+    .lb-table td { padding: 0.5rem; border-bottom: 1px solid rgba(60,80,120,0.2); }
+    .lb-table tr:nth-child(1) td:first-child::before { content: '🥇 '; }
+    .lb-table tr:nth-child(2) td:first-child::before { content: '🥈 '; }
+    .lb-table tr:nth-child(3) td:first-child::before { content: '🥉 '; }
+    .lb-empty { color: #667; text-align: center; padding: 2rem; }
+    .file-hint { font-size: 0.78rem; color: #667; text-align: center; margin-top: 1rem; max-width: 480px; line-height: 1.5; }
+    #import-file { display: none; }
   </style>
 </head>
 <body>
-  <div id="hud">WASD / Стрелки — движение<br>Дойдите до зелёного финиша</div>
-  <div id="joystick" aria-hidden="true">
-    <div id="joystick-base"></div>
-    <div id="joystick-thumb"></div>
+
+  <!-- Экран ввода имени -->
+  <div id="screen-welcome" class="screen active">
+    <div class="logo">Лабиринт</div>
+    <p class="subtitle">10 уровней · рейтинг · прохождение на время</p>
+    <div class="card">
+      <label for="player-name">Ваше имя</label>
+      <input type="text" id="player-name" placeholder="Введите имя игрока" maxlength="24" autocomplete="nickname">
+      <button class="btn btn-primary" id="btn-start">Начать игру</button>
+    </div>
   </div>
-  <div id="overlay">
-    <h1>Победа!</h1>
-    <p>Игра перезапускается...</p>
+
+  <!-- Меню уровней -->
+  <div id="screen-menu" class="screen">
+    <div class="logo" style="font-size:1.8rem;margin-top:1rem">Выбор уровня</div>
+    <p class="player-tag" id="menu-player"></p>
+    <div class="level-grid" id="level-grid"></div>
+    <div class="toolbar">
+      <button class="btn btn-secondary btn-sm" id="btn-leaderboard">Рейтинг</button>
+      <button class="btn btn-ghost btn-sm" id="btn-export">Скачать JSON</button>
+      <button class="btn btn-ghost btn-sm" id="btn-import">Загрузить JSON</button>
+      <button class="btn btn-ghost btn-sm" id="btn-change-name">Сменить имя</button>
+    </div>
+    <p class="file-hint">Рейтинг сохраняется в браузере и в файле <code>leaderboard.json</code>. Скачайте JSON, чтобы объединить результаты с других устройств.</p>
+    <input type="file" id="import-file" accept=".json,application/json">
+  </div>
+
+  <!-- Рейтинг -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="logo" style="font-size:1.6rem;margin-top:1rem">Рейтинг</div>
+    <div class="tabs" id="lb-tabs"></div>
+    <div id="lb-content"></div>
+    <button class="btn btn-secondary btn-sm" id="btn-lb-back" style="margin-top:1.5rem">Назад</button>
+  </div>
+
+  <!-- Игра -->
+  <div id="screen-game">
+    <div id="hud"></div>
+    <button class="btn btn-ghost btn-sm" id="btn-back">Меню</button>
+    <div id="joystick" aria-hidden="true">
+      <div id="joystick-base"></div>
+      <div id="joystick-thumb"></div>
+    </div>
+    <div id="overlay">
+      <h1>Уровень пройден!</h1>
+      <div class="score-big" id="overlay-score">+0</div>
+      <p id="overlay-time">Время: 0 с</p>
+      <p id="overlay-best"></p>
+      <div class="overlay-btns">
+        <button class="btn btn-primary btn-sm" id="btn-next-level">Следующий уровень</button>
+        <button class="btn btn-secondary btn-sm" id="btn-to-menu">В меню</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    // ─── Лабиринт: 1 = стена, 0 = проход, 2 = старт, 3 = финиш ───
-    const MAZE = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,2,0,0,0,1,0,0,0,0,0,1,0,0,0,0,1],
-      [1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1],
-      [1,0,1,1,1,1,1,1,0,1,1,1,1,1,0,1,1],
-      [1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
-      [1,1,1,0,1,1,0,1,1,1,0,1,1,1,1,0,1],
-      [1,0,0,0,1,0,0,0,0,1,0,0,0,0,1,0,1],
-      [1,0,1,1,1,0,1,1,0,1,1,1,1,0,1,0,1],
-      [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
-      [1,1,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
-      [1,0,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    ];
+  (function () {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════════════
+    //  КОНФИГУРАЦИЯ
+    // ═══════════════════════════════════════════════════════════
+    const LEVELS = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 1,
+      size: 11 + i * 2,
+      seed: 10007 + i * 7919,
+      speed: Math.max(3.2, 5.2 - i * 0.18),
+      label: ['Лёгкий', 'Простой', 'Средний', 'Сложнее', 'Сложный',
+              'Опытный', 'Мастер', 'Эксперт', 'Легенда', 'Босс'][i],
+    }));
 
     const CONFIG = {
       cellSize: 2,
       wallHeight: 2.5,
       playerRadius: 0.35,
-      playerSpeed: 5,
       cameraHeight: 7,
       cameraDistance: 8,
       cameraSmooth: 0.08,
       finishReachDist: 0.9,
-      restartDelay: 2500,
+      storageKey: 'labyrinth_v2_data',
     };
 
     const isMobile = matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
-
     if (isMobile) {
-      CONFIG.playerSpeed = 4.2;
+      document.body.classList.add('mobile');
       CONFIG.cameraHeight = 8.5;
       CONFIG.cameraDistance = 9.5;
-      document.body.classList.add('mobile');
-      document.getElementById('hud').innerHTML =
-        'Джойстик — движение<br>Дойдите до зелёного финиша';
     }
 
-    // ─── Состояние ───
+    // ═══════════════════════════════════════════════════════════
+    //  ГЕНЕРАТОР ЛАБИРИНТА
+    // ═══════════════════════════════════════════════════════════
+    function seededRandom(seed) {
+      let s = seed % 2147483647;
+      if (s <= 0) s += 2147483646;
+      return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    }
+
+    function shuffle(arr, rand) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function generateMaze(size, seed) {
+      const cols = size % 2 === 0 ? size + 1 : size;
+      const rows = cols;
+      const rand = seededRandom(seed);
+      const maze = Array.from({ length: rows }, () => Array(cols).fill(1));
+
+      function carve(cx, cy) {
+        maze[cy][cx] = 0;
+        const dirs = shuffle([[0, -2], [0, 2], [-2, 0], [2, 0]], rand);
+        for (const [dx, dy] of dirs) {
+          const nx = cx + dx, ny = cy + dy;
+          if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && maze[ny][nx] === 1) {
+            maze[cy + dy / 2][cx + dx / 2] = 0;
+            carve(nx, ny);
+          }
+        }
+      }
+
+      carve(1, 1);
+      maze[1][1] = 2;
+      maze[rows - 2][cols - 2] = 3;
+      return maze;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  СИСТЕМА ОЧКОВ И РЕЙТИНГА
+    // ═══════════════════════════════════════════════════════════
+    function emptyData() {
+      return { version: 2, currentPlayer: '', players: {}, history: [] };
+    }
+
+    function calcScore(levelId, timeSec) {
+      const base = levelId * 200;
+      const parTime = 25 + levelId * 12;
+      const timeBonus = Math.max(0, Math.round((parTime - timeSec) * levelId * 4));
+      return Math.max(100, base + timeBonus);
+    }
+
+    function sumBestScores(player) {
+      let total = 0;
+      for (let l = 1; l <= 10; l++) {
+        const rec = player.levels[String(l)];
+        if (rec) total += rec.bestScore;
+      }
+      return total;
+    }
+
+    const ScoreManager = {
+      data: emptyData(),
+
+      load() {
+        try {
+          const raw = localStorage.getItem(CONFIG.storageKey);
+          if (raw) this.data = JSON.parse(raw);
+        } catch { this.data = emptyData(); }
+        return this;
+      },
+
+      save() {
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.data, null, 2));
+      },
+
+      async loadRemote() {
+        try {
+          const res = await fetch('leaderboard.json?t=' + Date.now());
+          if (res.ok) {
+            const remote = await res.json();
+            this.merge(remote);
+            this.save();
+          }
+        } catch { /* offline or no file */ }
+      },
+
+      merge(other) {
+        if (!other || !other.players) return;
+        for (const [name, rp] of Object.entries(other.players)) {
+          if (!this.data.players[name]) {
+            this.data.players[name] = { unlockedLevel: 1, levels: {}, totalBestScore: 0 };
+          }
+          const lp = this.data.players[name];
+          lp.unlockedLevel = Math.max(lp.unlockedLevel || 1, rp.unlockedLevel || 1);
+          for (const [lvl, rec] of Object.entries(rp.levels || {})) {
+            const existing = lp.levels[lvl];
+            if (!existing || rec.bestScore > existing.bestScore) {
+              lp.levels[lvl] = { ...rec };
+            } else if (existing && rec.plays) {
+              existing.plays = Math.max(existing.plays, rec.plays);
+            }
+          }
+          lp.totalBestScore = sumBestScores(lp);
+        }
+        if (Array.isArray(other.history)) {
+          const seen = new Set(this.data.history.map(h => h.at + h.player + h.level));
+          for (const h of other.history) {
+            const key = h.at + h.player + h.level;
+            if (!seen.has(key)) this.data.history.push(h);
+          }
+          this.data.history.sort((a, b) => new Date(b.at) - new Date(a.at));
+          if (this.data.history.length > 500) this.data.history.length = 500;
+        }
+      },
+
+      setPlayer(name) {
+        const trimmed = name.trim();
+        if (!trimmed) return false;
+        this.data.currentPlayer = trimmed;
+        if (!this.data.players[trimmed]) {
+          this.data.players[trimmed] = { unlockedLevel: 1, levels: {}, totalBestScore: 0 };
+        }
+        this.save();
+        return true;
+      },
+
+      getPlayer() {
+        return this.data.players[this.data.currentPlayer] || null;
+      },
+
+      getUnlockedLevel() {
+        return this.getPlayer()?.unlockedLevel || 1;
+      },
+
+      recordWin(levelId, timeSec) {
+        const name = this.data.currentPlayer;
+        if (!name) return null;
+        const score = calcScore(levelId, timeSec);
+        const p = this.data.players[name];
+        const key = String(levelId);
+        const prev = p.levels[key];
+        const isBest = !prev || score > prev.bestScore;
+
+        if (isBest) {
+          p.levels[key] = {
+            bestScore: score,
+            bestTime: Math.round(timeSec * 10) / 10,
+            plays: (prev?.plays || 0) + 1,
+            lastPlayed: new Date().toISOString(),
+          };
+        } else if (prev) {
+          prev.plays = (prev.plays || 0) + 1;
+          prev.lastPlayed = new Date().toISOString();
+        } else {
+          p.levels[key] = {
+            bestScore: score, bestTime: Math.round(timeSec * 10) / 10,
+            plays: 1, lastPlayed: new Date().toISOString(),
+          };
+        }
+
+        if (levelId >= p.unlockedLevel && levelId < 10) {
+          p.unlockedLevel = levelId + 1;
+        }
+        p.totalBestScore = sumBestScores(p);
+
+        this.data.history.unshift({
+          player: name, level: levelId, score, time: Math.round(timeSec * 10) / 10,
+          at: new Date().toISOString(),
+        });
+        if (this.data.history.length > 500) this.data.history.length = 500;
+        this.save();
+        return { score, isBest, bestScore: p.levels[key].bestScore };
+      },
+
+      getOverallRanking() {
+        return Object.entries(this.data.players)
+          .map(([name, p]) => ({ name, score: p.totalBestScore || sumBestScores(p), unlocked: p.unlockedLevel }))
+          .filter(r => r.score > 0)
+          .sort((a, b) => b.score - a.score);
+      },
+
+      getLevelRanking(levelId) {
+        const key = String(levelId);
+        return Object.entries(this.data.players)
+          .map(([name, p]) => {
+            const rec = p.levels[key];
+            return rec ? { name, score: rec.bestScore, time: rec.bestTime, plays: rec.plays } : null;
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.score - a.score || a.time - b.time);
+      },
+
+      exportJSON() {
+        const blob = new Blob([JSON.stringify(this.data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'leaderboard.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      },
+
+      importJSON(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const imported = JSON.parse(reader.result);
+            this.merge(imported);
+            this.save();
+            alert('Рейтинг успешно загружен и объединён!');
+            renderMenu();
+          } catch {
+            alert('Ошибка: неверный формат JSON');
+          }
+        };
+        reader.readAsText(file);
+      },
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    //  UI
+    // ═══════════════════════════════════════════════════════════
+    const screens = {
+      welcome: document.getElementById('screen-welcome'),
+      menu: document.getElementById('screen-menu'),
+      game: document.getElementById('screen-game'),
+      leaderboard: document.getElementById('screen-leaderboard'),
+    };
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+    }
+
+    function renderMenu() {
+      const name = ScoreManager.data.currentPlayer;
+      document.getElementById('menu-player').textContent = 'Игрок: ' + name;
+      const grid = document.getElementById('level-grid');
+      const unlocked = ScoreManager.getUnlockedLevel();
+      const player = ScoreManager.getPlayer();
+      grid.innerHTML = '';
+
+      LEVELS.forEach(lv => {
+        const btn = document.createElement('button');
+        const rec = player?.levels[String(lv.id)];
+        const isUnlocked = lv.id <= unlocked;
+        btn.className = 'level-btn' + (isUnlocked ? ' unlocked' : ' locked') + (rec ? ' best' : '');
+        btn.innerHTML = `<span>${lv.id}</span><span style="font-size:0.55rem;color:#8899bb">${lv.label}</span>` +
+          (rec ? `<span class="stars">${rec.bestScore}★</span>` : '');
+        if (isUnlocked) {
+          btn.addEventListener('click', () => startLevel(lv.id));
+        }
+        grid.appendChild(btn);
+      });
+    }
+
+    function renderLeaderboard(tab) {
+      const tabsEl = document.getElementById('lb-tabs');
+      const content = document.getElementById('lb-content');
+      const activeTab = tab || 'overall';
+
+      tabsEl.innerHTML = '';
+      const tabDefs = [{ id: 'overall', label: 'Общий' }];
+      for (let i = 1; i <= 10; i++) tabDefs.push({ id: String(i), label: 'Ур.' + i });
+
+      tabDefs.forEach(t => {
+        const btn = document.createElement('button');
+        btn.className = 'tab' + (t.id === activeTab ? ' active' : '');
+        btn.textContent = t.label;
+        btn.addEventListener('click', () => renderLeaderboard(t.id));
+        tabsEl.appendChild(btn);
+      });
+
+      let rows;
+      if (activeTab === 'overall') {
+        rows = ScoreManager.getOverallRanking();
+        content.innerHTML = rows.length ? `
+          <table class="lb-table"><thead><tr><th>#</th><th>Игрок</th><th>Очки</th><th>Уровень</th></tr></thead>
+          <tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.score}</td><td>${r.unlocked}/10</td></tr>`).join('')}
+          </tbody></table>` : '<p class="lb-empty">Пока нет результатов</p>';
+      } else {
+        rows = ScoreManager.getLevelRanking(Number(activeTab));
+        content.innerHTML = rows.length ? `
+          <table class="lb-table"><thead><tr><th>#</th><th>Игрок</th><th>Очки</th><th>Время</th><th>Попыток</th></tr></thead>
+          <tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.score}</td><td>${r.time}с</td><td>${r.plays}</td></tr>`).join('')}
+          </tbody></table>` : '<p class="lb-empty">Пока нет результатов на этом уровне</p>';
+      }
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ИГРОВОЙ ДВИЖОК (Three.js)
+    // ═══════════════════════════════════════════════════════════
     const keys = {};
     const touchInput = { dx: 0, dz: 0 };
+    let currentLevel = 1;
+    let levelStartTime = 0;
     let won = false;
-    let startPos = { x: 0, z: 0 };
-    let finishPos = { x: 0, z: 0 };
-    const walls = [];
+    let animId = null;
 
-    // ─── DOM ───
-    const overlay = document.getElementById('overlay');
+    let scene, camera, renderer, player, finishGroup, finishGlow, finishBase;
+    let walls = [], wallMeshes = [];
+    let startPos = { x: 0, z: 0 }, finishPos = { x: 0, z: 0 };
+    let mazeWidth = 0, mazeDepth = 0, offsetX = 0, offsetZ = 0;
+    let playerSpeed = 5;
+    const cameraTarget = new THREE.Vector3();
+    const cameraPos = new THREE.Vector3();
+    let clock, sun, floor, gridHelper;
 
-    // ─── Сцена ───
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a12);
-    scene.fog = new THREE.Fog(0x0a0a12, 25, 55);
-
-    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.body.appendChild(renderer.domElement);
-
-    // ─── Освещение ───
-    const ambient = new THREE.AmbientLight(0x404060, 0.45);
-    scene.add(ambient);
-
-    const sun = new THREE.DirectionalLight(0xfff0dd, 0.85);
-    sun.position.set(12, 22, 10);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 60;
-    const shadowRange = 30;
-    sun.shadow.camera.left = -shadowRange;
-    sun.shadow.camera.right = shadowRange;
-    sun.shadow.camera.top = shadowRange;
-    sun.shadow.camera.bottom = -shadowRange;
-    sun.shadow.bias = -0.0008;
-    scene.add(sun);
-    scene.add(sun.target);
-
-    const rimLight = new THREE.DirectionalLight(0x6688ff, 0.25);
-    rimLight.position.set(-8, 6, -12);
-    scene.add(rimLight);
-
-    // ─── Пол ───
-    const rows = MAZE.length;
-    const cols = MAZE[0].length;
-    const mazeWidth = cols * CONFIG.cellSize;
-    const mazeDepth = rows * CONFIG.cellSize;
-    const offsetX = -mazeWidth / 2 + CONFIG.cellSize / 2;
-    const offsetZ = -mazeDepth / 2 + CONFIG.cellSize / 2;
-
-    const floorGeo = new THREE.PlaneGeometry(mazeWidth + 4, mazeDepth + 4);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x12121c,
-      roughness: 0.85,
-      metalness: 0.15,
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = 0;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    const gridHelper = new THREE.GridHelper(
-      Math.max(mazeWidth, mazeDepth) + 2,
-      Math.max(cols, rows) + 1,
-      0x1a2a44,
-      0x111822
-    );
-    gridHelper.position.y = 0.01;
-    scene.add(gridHelper);
-
-    // ─── Материалы ───
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x6a6a78,
-      roughness: 0.35,
-      metalness: 0.55,
-      emissive: 0x222233,
-      emissiveIntensity: 0.35,
+      color: 0x6a6a78, roughness: 0.35, metalness: 0.55,
+      emissive: 0x222233, emissiveIntensity: 0.35,
     });
-
     const wallEdgeMat = new THREE.LineBasicMaterial({ color: 0x99bbff, transparent: true, opacity: 0.55 });
-
     const finishMat = new THREE.MeshStandardMaterial({
-      color: 0x2ecc71,
-      emissive: 0x1a8844,
-      emissiveIntensity: 0.9,
-      roughness: 0.3,
-      metalness: 0.4,
+      color: 0x2ecc71, emissive: 0x1a8844, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.4,
     });
 
-    // ─── Построение лабиринта ───
-    function cellToWorld(col, row) {
-      return {
-        x: col * CONFIG.cellSize + offsetX,
-        z: row * CONFIG.cellSize + offsetZ,
-      };
+    function initEngine() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a12);
+      scene.fog = new THREE.Fog(0x0a0a12, 25, 80);
+
+      camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 300);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.5 : 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      screens.game.insertBefore(renderer.domElement, screens.game.firstChild);
+
+      scene.add(new THREE.AmbientLight(0x404060, 0.45));
+      sun = new THREE.DirectionalLight(0xfff0dd, 0.85);
+      sun.position.set(12, 22, 10);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
+      const sr = 35;
+      sun.shadow.camera.near = 1; sun.shadow.camera.far = 80;
+      sun.shadow.camera.left = -sr; sun.shadow.camera.right = sr;
+      sun.shadow.camera.top = sr; sun.shadow.camera.bottom = -sr;
+      sun.shadow.bias = -0.0008;
+      scene.add(sun); scene.add(sun.target);
+
+      const rim = new THREE.DirectionalLight(0x6688ff, 0.25);
+      rim.position.set(-8, 6, -12);
+      scene.add(rim);
+
+      player = new THREE.Group();
+      const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(CONFIG.playerRadius, 28, 28),
+        new THREE.MeshStandardMaterial({ color: 0x2288ff, emissive: 0x1166ff, emissiveIntensity: 1.1, roughness: 0.2, metalness: 0.3 })
+      );
+      sphere.castShadow = true;
+      player.add(sphere);
+      const pl = new THREE.PointLight(0x3399ff, 1.5, 8);
+      player.add(pl);
+      const glow = new THREE.Mesh(
+        new THREE.SphereGeometry(CONFIG.playerRadius * 1.6, 14, 14),
+        new THREE.MeshBasicMaterial({ color: 0x2288ff, transparent: true, opacity: 0.12 })
+      );
+      glow.name = 'glow';
+      player.add(glow);
+      scene.add(player);
+
+      finishGroup = new THREE.Group();
+      finishBase = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 1.2, 16), finishMat);
+      finishBase.position.y = 0.6; finishBase.castShadow = true;
+      finishGroup.add(finishBase);
+      finishGlow = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.75, 0.75, 0.08, 24),
+        new THREE.MeshStandardMaterial({ color: 0x4eff91, emissive: 0x4eff91, emissiveIntensity: 1.2, transparent: true, opacity: 0.7 })
+      );
+      finishGlow.position.y = 0.04;
+      finishGroup.add(finishGlow);
+      const fl = new THREE.PointLight(0x4eff91, 1.2, 6);
+      fl.position.set(0, 1.5, 0);
+      finishGroup.add(fl);
+      scene.add(finishGroup);
+
+      clock = new THREE.Clock();
     }
 
-    function buildMaze() {
+    function clearMaze() {
+      wallMeshes.forEach(m => { scene.remove(m); if (m.geometry) m.geometry.dispose?.(); });
+      wallMeshes = [];
+      walls = [];
+      if (floor) { scene.remove(floor); floor.geometry.dispose(); floor.material.dispose(); floor = null; }
+      if (gridHelper) { scene.remove(gridHelper); gridHelper = null; }
+    }
+
+    function cellToWorld(col, row) {
+      return { x: col * CONFIG.cellSize + offsetX, z: row * CONFIG.cellSize + offsetZ };
+    }
+
+    function buildLevel(levelId) {
+      clearMaze();
+      const lv = LEVELS[levelId - 1];
+      const MAZE = generateMaze(lv.size, lv.seed);
+      playerSpeed = lv.speed;
+      const rows = MAZE.length, cols = MAZE[0].length;
+      mazeWidth = cols * CONFIG.cellSize;
+      mazeDepth = rows * CONFIG.cellSize;
+      offsetX = -mazeWidth / 2 + CONFIG.cellSize / 2;
+      offsetZ = -mazeDepth / 2 + CONFIG.cellSize / 2;
+
+      floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(mazeWidth + 4, mazeDepth + 4),
+        new THREE.MeshStandardMaterial({ color: 0x12121c, roughness: 0.85, metalness: 0.15 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      gridHelper = new THREE.GridHelper(Math.max(mazeWidth, mazeDepth) + 2, Math.max(cols, rows) + 1, 0x1a2a44, 0x111822);
+      gridHelper.position.y = 0.01;
+      scene.add(gridHelper);
+
       const wallGeo = new THREE.BoxGeometry(CONFIG.cellSize, CONFIG.wallHeight, CONFIG.cellSize);
       const edgesGeo = new THREE.EdgesGeometry(wallGeo);
 
@@ -229,328 +659,253 @@
         for (let col = 0; col < cols; col++) {
           const cell = MAZE[row][col];
           const { x, z } = cellToWorld(col, row);
-
           if (cell === 1) {
             const wall = new THREE.Mesh(wallGeo, wallMat);
             wall.position.set(x, CONFIG.wallHeight / 2, z);
-            wall.castShadow = true;
-            wall.receiveShadow = true;
-            scene.add(wall);
-
+            wall.castShadow = true; wall.receiveShadow = true;
+            scene.add(wall); wallMeshes.push(wall);
             const edges = new THREE.LineSegments(edgesGeo, wallEdgeMat);
             edges.position.copy(wall.position);
-            scene.add(edges);
-
-            walls.push({
-              minX: x - CONFIG.cellSize / 2,
-              maxX: x + CONFIG.cellSize / 2,
-              minZ: z - CONFIG.cellSize / 2,
-              maxZ: z + CONFIG.cellSize / 2,
-            });
-          } else if (cell === 2) {
-            startPos = { x, z };
-          } else if (cell === 3) {
-            finishPos = { x, z };
-          }
+            scene.add(edges); wallMeshes.push(edges);
+            walls.push({ minX: x - CONFIG.cellSize / 2, maxX: x + CONFIG.cellSize / 2, minZ: z - CONFIG.cellSize / 2, maxZ: z + CONFIG.cellSize / 2 });
+          } else if (cell === 2) startPos = { x, z };
+          else if (cell === 3) finishPos = { x, z };
         }
       }
+
+      finishGroup.position.set(finishPos.x, 0, finishPos.z);
+      resetPlayerPos();
+      camera.position.set(startPos.x, CONFIG.cameraHeight, startPos.z + CONFIG.cameraDistance);
+      camera.lookAt(startPos.x, CONFIG.playerRadius, startPos.z);
+      cameraPos.copy(camera.position);
+      cameraTarget.set(startPos.x, CONFIG.playerRadius, startPos.z);
+
+      const hud = document.getElementById('hud');
+      const mobileHint = isMobile ? 'Джойстик' : 'WASD / Стрелки';
+      hud.innerHTML = `<b>Уровень ${levelId}</b> — ${lv.label}<br>${mobileHint} · Дойдите до финиша<br><span class="score-line" id="hud-timer">0.0 с</span>`;
     }
 
-    buildMaze();
-
-    // ─── Финиш ───
-    const finishGroup = new THREE.Group();
-    const finishBase = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 0.7, 1.2, 16),
-      finishMat
-    );
-    finishBase.position.y = 0.6;
-    finishBase.castShadow = true;
-    finishGroup.add(finishBase);
-
-    const finishGlow = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.75, 0.75, 0.08, 24),
-      new THREE.MeshStandardMaterial({
-        color: 0x4eff91,
-        emissive: 0x4eff91,
-        emissiveIntensity: 1.2,
-        transparent: true,
-        opacity: 0.7,
-      })
-    );
-    finishGlow.position.y = 0.04;
-    finishGroup.add(finishGlow);
-
-    finishGroup.position.set(finishPos.x, 0, finishPos.z);
-    scene.add(finishGroup);
-
-    const finishLight = new THREE.PointLight(0x4eff91, 1.2, 6);
-    finishLight.position.set(0, 1.5, 0);
-    finishGroup.add(finishLight);
-
-    // ─── Игрок ───
-    const player = new THREE.Group();
-    const playerSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(CONFIG.playerRadius, 32, 32),
-      new THREE.MeshStandardMaterial({
-        color: 0x2288ff,
-        emissive: 0x1166ff,
-        emissiveIntensity: 1.1,
-        roughness: 0.2,
-        metalness: 0.3,
-      })
-    );
-    playerSphere.castShadow = true;
-    player.add(playerSphere);
-
-    const playerLight = new THREE.PointLight(0x3399ff, 1.5, 8);
-    player.add(playerLight);
-
-    const playerGlow = new THREE.Mesh(
-      new THREE.SphereGeometry(CONFIG.playerRadius * 1.6, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0x2288ff, transparent: true, opacity: 0.12 })
-    );
-    player.add(playerGlow);
-
-    scene.add(player);
-
-    // ─── Камера (цель для сглаживания) ───
-    const cameraTarget = new THREE.Vector3();
-    const cameraPos = new THREE.Vector3();
-
-    // ─── Утилиты ───
-    function resetPlayer() {
+    function resetPlayerPos() {
       player.position.set(startPos.x, CONFIG.playerRadius, startPos.z);
       won = false;
-      overlay.classList.remove('visible');
-    }
-
-    function showVictory() {
-      if (won) return;
-      won = true;
-      overlay.classList.add('visible');
-      setTimeout(() => resetPlayer(), CONFIG.restartDelay);
+      document.getElementById('overlay').classList.remove('visible');
     }
 
     function resolveCircleAABB(px, pz, radius, box) {
-      const closestX = Math.max(box.minX, Math.min(px, box.maxX));
-      const closestZ = Math.max(box.minZ, Math.min(pz, box.maxZ));
-      const dx = px - closestX;
-      const dz = pz - closestZ;
+      const cx = Math.max(box.minX, Math.min(px, box.maxX));
+      const cz = Math.max(box.minZ, Math.min(pz, box.maxZ));
+      const dx = px - cx, dz = pz - cz;
       const distSq = dx * dx + dz * dz;
-
       if (distSq >= radius * radius) return { x: px, z: pz };
-
       if (distSq < 1e-8) {
-        const toLeft = px - box.minX;
-        const toRight = box.maxX - px;
-        const toTop = pz - box.minZ;
-        const toBottom = box.maxZ - pz;
-        const min = Math.min(toLeft, toRight, toTop, toBottom);
-
-        if (min === toLeft) return { x: box.minX - radius, z: pz };
-        if (min === toRight) return { x: box.maxX + radius, z: pz };
-        if (min === toTop) return { x: px, z: box.minZ - radius };
+        const d = [px - box.minX, box.maxX - px, pz - box.minZ, box.maxZ - pz];
+        const m = Math.min(...d);
+        if (m === d[0]) return { x: box.minX - radius, z: pz };
+        if (m === d[1]) return { x: box.maxX + radius, z: pz };
+        if (m === d[2]) return { x: px, z: box.minZ - radius };
         return { x: px, z: box.maxZ + radius };
       }
+      const dist = Math.sqrt(distSq), overlap = radius - dist;
+      return { x: px + (dx / dist) * overlap, z: pz + (dz / dist) * overlap };
+    }
 
-      const dist = Math.sqrt(distSq);
-      const overlap = radius - dist;
-      const nx = dx / dist;
-      const nz = dz / dist;
-      return { x: px + nx * overlap, z: pz + nz * overlap };
+    function getInputDirection() {
+      let dx = 0, dz = 0;
+      if (keys['ArrowUp'] || keys['KeyW']) dz -= 1;
+      if (keys['ArrowDown'] || keys['KeyS']) dz += 1;
+      if (keys['ArrowLeft'] || keys['KeyA']) dx -= 1;
+      if (keys['ArrowRight'] || keys['KeyD']) dx += 1;
+      if (dx === 0 && dz === 0) { dx = touchInput.dx; dz = touchInput.dz; }
+      const len = Math.hypot(dx, dz);
+      if (len > 0) { dx /= len; dz /= len; }
+      return { dx, dz };
     }
 
     function movePlayer(dx, dz, dt) {
       if (won) return;
-
-      let newX = player.position.x + dx * CONFIG.playerSpeed * dt;
-      let newZ = player.position.z + dz * CONFIG.playerSpeed * dt;
-
+      let nx = player.position.x + dx * playerSpeed * dt;
+      let nz = player.position.z + dz * playerSpeed * dt;
       const r = CONFIG.playerRadius;
-      for (let i = 0; i < walls.length; i++) {
-        const resolved = resolveCircleAABB(newX, newZ, r, walls[i]);
-        newX = resolved.x;
-        newZ = resolved.z;
-      }
+      for (const w of walls) { const res = resolveCircleAABB(nx, nz, r, w); nx = res.x; nz = res.z; }
+      const hw = mazeWidth / 2 - r, hd = mazeDepth / 2 - r;
+      player.position.x = Math.max(-hw, Math.min(hw, nx));
+      player.position.z = Math.max(-hd, Math.min(hd, nz));
 
-      const halfW = mazeWidth / 2 - r;
-      const halfD = mazeDepth / 2 - r;
-      newX = Math.max(-halfW, Math.min(halfW, newX));
-      newZ = Math.max(-halfD, Math.min(halfD, newZ));
+      const elapsed = clock.getElapsedTime() - levelStartTime;
+      const timerEl = document.getElementById('hud-timer');
+      if (timerEl) timerEl.textContent = elapsed.toFixed(1) + ' с';
 
-      player.position.x = newX;
-      player.position.z = newZ;
+      const fdx = finishPos.x - player.position.x, fdz = finishPos.z - player.position.z;
+      if (Math.hypot(fdx, fdz) < CONFIG.finishReachDist) onLevelComplete(elapsed);
+    }
 
-      const fdx = finishPos.x - newX;
-      const fdz = finishPos.z - newZ;
-      if (Math.sqrt(fdx * fdx + fdz * fdz) < CONFIG.finishReachDist) {
-        showVictory();
-      }
+    function onLevelComplete(elapsed) {
+      if (won) return;
+      won = true;
+      const result = ScoreManager.recordWin(currentLevel, elapsed);
+      const overlay = document.getElementById('overlay');
+      document.getElementById('overlay-score').textContent = '+' + result.score + ' очков';
+      document.getElementById('overlay-time').textContent = 'Время: ' + elapsed.toFixed(1) + ' с';
+      document.getElementById('overlay-best').textContent = result.isBest
+        ? 'Новый рекорд! Лучший: ' + result.bestScore
+        : 'Лучший результат: ' + result.bestScore;
+      const nextBtn = document.getElementById('btn-next-level');
+      nextBtn.style.display = currentLevel < 10 ? 'inline-flex' : 'none';
+      overlay.classList.add('visible');
     }
 
     function updateCamera() {
-      const px = player.position.x;
-      const pz = player.position.z;
-
-      const desiredCamX = px;
-      const desiredCamY = CONFIG.cameraHeight;
-      const desiredCamZ = pz + CONFIG.cameraDistance;
-
-      cameraPos.lerp(
-        new THREE.Vector3(desiredCamX, desiredCamY, desiredCamZ),
-        CONFIG.cameraSmooth
-      );
-      cameraTarget.lerp(
-        new THREE.Vector3(px, CONFIG.playerRadius, pz),
-        CONFIG.cameraSmooth
-      );
-
+      const px = player.position.x, pz = player.position.z;
+      cameraPos.lerp(new THREE.Vector3(px, CONFIG.cameraHeight, pz + CONFIG.cameraDistance), CONFIG.cameraSmooth);
+      cameraTarget.lerp(new THREE.Vector3(px, CONFIG.playerRadius, pz), CONFIG.cameraSmooth);
       camera.position.copy(cameraPos);
       camera.lookAt(cameraTarget);
       sun.target.position.set(px, 0, pz);
     }
 
-    function getInputDirection() {
-      let dx = 0;
-      let dz = 0;
-      if (keys['ArrowUp'] || keys['KeyW']) dz -= 1;
-      if (keys['ArrowDown'] || keys['KeyS']) dz += 1;
-      if (keys['ArrowLeft'] || keys['KeyA']) dx -= 1;
-      if (keys['ArrowRight'] || keys['KeyD']) dx += 1;
-
-      if (dx === 0 && dz === 0) {
-        dx = touchInput.dx;
-        dz = touchInput.dz;
+    function animate() {
+      animId = requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      if (!won) {
+        const { dx, dz } = getInputDirection();
+        movePlayer(dx, dz, dt);
       }
-
-      const len = Math.hypot(dx, dz);
-      if (len > 0) {
-        dx /= len;
-        dz /= len;
-      }
-      return { dx, dz };
+      updateCamera();
+      finishGlow.rotation.y += dt * 1.5;
+      finishBase.position.y = 0.6 + Math.sin(clock.elapsedTime * 2.5) * 0.08;
+      const glow = player.getObjectByName('glow');
+      if (glow) glow.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.08);
+      renderer.render(scene, camera);
     }
 
+    function startLevel(levelId) {
+      currentLevel = levelId;
+      showScreen('game');
+      if (!scene) initEngine();
+      buildLevel(levelId);
+      clock.start();
+      levelStartTime = clock.getElapsedTime();
+      won = false;
+      if (!animId) animate();
+    }
+
+    function stopGame() {
+      won = true;
+      document.getElementById('overlay').classList.remove('visible');
+      showScreen('menu');
+      renderMenu();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ДЖОЙСТИК
+    // ═══════════════════════════════════════════════════════════
     function setupJoystick() {
       if (!isMobile) return;
-
       const joystick = document.getElementById('joystick');
       const base = document.getElementById('joystick-base');
       const thumb = document.getElementById('joystick-thumb');
-      const maxRadius = 38;
-      let activeId = null;
-      let centerX = 0;
-      let centerY = 0;
+      const maxR = 38;
+      let activeId = null, cx = 0, cy = 0;
 
-      function setThumb(offsetX, offsetY) {
-        const dist = Math.hypot(offsetX, offsetY);
-        const clamped = Math.min(dist, maxRadius);
-        const angle = Math.atan2(offsetY, offsetX);
-        const tx = Math.cos(angle) * clamped;
-        const ty = Math.sin(angle) * clamped;
-        thumb.style.transform = `translate(${tx}px, ${ty}px)`;
-        touchInput.dx = tx / maxRadius;
-        touchInput.dz = ty / maxRadius;
+      function setThumb(ox, oy) {
+        const d = Math.hypot(ox, oy), c = Math.min(d, maxR), a = Math.atan2(oy, ox);
+        const tx = Math.cos(a) * c, ty = Math.sin(a) * c;
+        thumb.style.transform = `translate(${tx}px,${ty}px)`;
+        touchInput.dx = tx / maxR; touchInput.dz = ty / maxR;
       }
+      function reset() { thumb.style.transform = 'translate(0,0)'; touchInput.dx = 0; touchInput.dz = 0; activeId = null; }
 
-      function resetJoystick() {
-        thumb.style.transform = 'translate(0, 0)';
-        touchInput.dx = 0;
-        touchInput.dz = 0;
-        activeId = null;
-      }
-
-      function onTouchStart(e) {
+      joystick.addEventListener('touchstart', e => {
         e.preventDefault();
         if (activeId !== null) return;
-        const touch = e.changedTouches[0];
-        activeId = touch.identifier;
-        const rect = base.getBoundingClientRect();
-        centerX = rect.left + rect.width / 2;
-        centerY = rect.top + rect.height / 2;
-        setThumb(touch.clientX - centerX, touch.clientY - centerY);
-      }
-
-      function onTouchMove(e) {
+        const t = e.changedTouches[0]; activeId = t.identifier;
+        const r = base.getBoundingClientRect();
+        cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+        setThumb(t.clientX - cx, t.clientY - cy);
+      }, { passive: false });
+      joystick.addEventListener('touchmove', e => {
         e.preventDefault();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const touch = e.changedTouches[i];
-          if (touch.identifier === activeId) {
-            setThumb(touch.clientX - centerX, touch.clientY - centerY);
-          }
-        }
-      }
-
-      function onTouchEnd(e) {
+        for (const t of e.changedTouches) if (t.identifier === activeId) setThumb(t.clientX - cx, t.clientY - cy);
+      }, { passive: false });
+      joystick.addEventListener('touchend', e => {
         e.preventDefault();
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          if (e.changedTouches[i].identifier === activeId) {
-            resetJoystick();
-          }
-        }
-      }
-
-      joystick.addEventListener('touchstart', onTouchStart, { passive: false });
-      joystick.addEventListener('touchmove', onTouchMove, { passive: false });
-      joystick.addEventListener('touchend', onTouchEnd, { passive: false });
-      joystick.addEventListener('touchcancel', onTouchEnd, { passive: false });
+        for (const t of e.changedTouches) if (t.identifier === activeId) reset();
+      }, { passive: false });
+      joystick.addEventListener('touchcancel', e => {
+        for (const t of e.changedTouches) if (t.identifier === activeId) reset();
+      }, { passive: false });
     }
 
     function onResize() {
-      const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      if (!camera || !renderer) return;
+      const w = visualViewport ? visualViewport.width : innerWidth;
+      const h = visualViewport ? visualViewport.height : innerHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
     }
 
-    // ─── События ───
-    window.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
-        e.preventDefault();
-      }
+    // ═══════════════════════════════════════════════════════════
+    //  СОБЫТИЯ
+    // ═══════════════════════════════════════════════════════════
+    document.getElementById('btn-start').addEventListener('click', () => {
+      const name = document.getElementById('player-name').value;
+      if (!ScoreManager.setPlayer(name)) { alert('Введите имя игрока'); return; }
+      showScreen('menu');
+      renderMenu();
     });
-    window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-    document.addEventListener('touchmove', (e) => {
-      if (!e.target.closest('#joystick')) e.preventDefault();
-    }, { passive: false });
+    document.getElementById('player-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-start').click();
+    });
 
+    document.getElementById('btn-change-name').addEventListener('click', () => {
+      document.getElementById('player-name').value = ScoreManager.data.currentPlayer;
+      showScreen('welcome');
+    });
+
+    document.getElementById('btn-leaderboard').addEventListener('click', () => {
+      showScreen('leaderboard');
+      renderLeaderboard('overall');
+    });
+
+    document.getElementById('btn-lb-back').addEventListener('click', () => { showScreen('menu'); renderMenu(); });
+    document.getElementById('btn-back').addEventListener('click', stopGame);
+    document.getElementById('btn-to-menu').addEventListener('click', stopGame);
+
+    document.getElementById('btn-next-level').addEventListener('click', () => {
+      if (currentLevel < 10) startLevel(currentLevel + 1);
+    });
+
+    document.getElementById('btn-export').addEventListener('click', () => ScoreManager.exportJSON());
+    document.getElementById('btn-import').addEventListener('click', () => document.getElementById('import-file').click());
+    document.getElementById('import-file').addEventListener('change', e => {
+      if (e.target.files[0]) ScoreManager.importJSON(e.target.files[0]);
+      e.target.value = '';
+    });
+
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+    });
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
+    document.addEventListener('touchmove', e => { if (!e.target.closest('#joystick')) e.preventDefault(); }, { passive: false });
     window.addEventListener('resize', onResize);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', onResize);
-    }
+    if (window.visualViewport) visualViewport.addEventListener('resize', onResize);
 
+    // ═══════════════════════════════════════════════════════════
+    //  СТАРТ
+    // ═══════════════════════════════════════════════════════════
+    ScoreManager.load();
+    ScoreManager.loadRemote();
     setupJoystick();
 
-    // ─── Инициализация ───
-    resetPlayer();
-    camera.position.set(startPos.x, CONFIG.cameraHeight, startPos.z + CONFIG.cameraDistance);
-    camera.lookAt(startPos.x, CONFIG.playerRadius, startPos.z);
-    cameraPos.copy(camera.position);
-    cameraTarget.set(startPos.x, CONFIG.playerRadius, startPos.z);
-
-    // ─── Игровой цикл ───
-    const clock = new THREE.Clock();
-
-    function animate() {
-      requestAnimationFrame(animate);
-      const dt = Math.min(clock.getDelta(), 0.05);
-
-      const { dx, dz } = getInputDirection();
-      movePlayer(dx, dz, dt);
-      updateCamera();
-
-      finishGlow.rotation.y += dt * 1.5;
-      finishBase.position.y = 0.6 + Math.sin(clock.elapsedTime * 2.5) * 0.08;
-      playerGlow.scale.setScalar(1 + Math.sin(clock.elapsedTime * 3) * 0.08);
-
-      renderer.render(scene, camera);
+    if (ScoreManager.data.currentPlayer) {
+      document.getElementById('player-name').value = ScoreManager.data.currentPlayer;
+      showScreen('menu');
+      renderMenu();
     }
-
-    animate();
+  })();
   </script>
 </body>
 </html>

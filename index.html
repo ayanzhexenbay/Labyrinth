@@ -301,6 +301,14 @@
       return total;
     }
 
+    function countCompletedLevels(player) {
+      let count = 0;
+      for (let l = 1; l <= 10; l++) {
+        if (player.levels[String(l)]?.bestScore) count++;
+      }
+      return count;
+    }
+
     function encodePlayerKey(name) {
       return name.replace(/[.#$/\[\]]/g, '_');
     }
@@ -560,7 +568,11 @@
 
       getOverallRanking() {
         return Object.entries(this.data.players)
-          .map(([name, p]) => ({ name, score: p.totalBestScore || sumBestScores(p), unlocked: p.unlockedLevel }))
+          .map(([name, p]) => ({
+            name,
+            score: p.totalBestScore || sumBestScores(p),
+            completed: countCompletedLevels(p),
+          }))
           .filter(r => r.score > 0)
           .sort((a, b) => b.score - a.score);
       },
@@ -663,8 +675,8 @@
       if (activeTab === 'overall') {
         rows = ScoreManager.getOverallRanking();
         content.innerHTML = rows.length ? `
-          <table class="lb-table"><thead><tr><th>#</th><th>Игрок</th><th>Очки</th><th>Уровень</th></tr></thead>
-          <tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.score}</td><td>${r.unlocked}/10</td></tr>`).join('')}
+          <table class="lb-table"><thead><tr><th>#</th><th>Игрок</th><th>Очки</th><th>Пройдено</th></tr></thead>
+          <tbody>${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.score}</td><td>${r.completed}/10</td></tr>`).join('')}
           </tbody></table>` : '<p class="lb-empty">Пока нет результатов</p>';
       } else {
         rows = ScoreManager.getLevelRanking(Number(activeTab));

@@ -133,6 +133,12 @@
     .lb-empty { color: #667; text-align: center; padding: 2rem; }
     .file-hint { font-size: 0.78rem; color: #667; text-align: center; margin-top: 1rem; max-width: 480px; line-height: 1.5; }
     #import-file { display: none; }
+    #cloud-status {
+      font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 20px; margin-bottom: 0.75rem;
+      background: rgba(40,50,70,0.6); color: #8899bb;
+    }
+    #cloud-status.online { color: #4eff91; background: rgba(30,80,50,0.35); }
+    #cloud-status.offline { color: #ffaa66; }
   </style>
 </head>
 <body>
@@ -152,6 +158,7 @@
   <div id="screen-menu" class="screen">
     <div class="logo" style="font-size:1.8rem;margin-top:1rem">Выбор уровня</div>
     <p class="player-tag" id="menu-player"></p>
+    <p id="cloud-status">☁ Загрузка рейтинга...</p>
     <div class="level-grid" id="level-grid"></div>
     <div class="toolbar">
       <button class="btn btn-secondary btn-sm" id="btn-leaderboard">Рейтинг</button>
@@ -159,7 +166,7 @@
       <button class="btn btn-ghost btn-sm" id="btn-import">Загрузить JSON</button>
       <button class="btn btn-ghost btn-sm" id="btn-change-name">Сменить имя</button>
     </div>
-    <p class="file-hint">Рейтинг сохраняется в браузере и в файле <code>leaderboard.json</code>. Скачайте JSON, чтобы объединить результаты с других устройств.</p>
+    <p class="file-hint">Очки всех игроков сохраняются в <b>облаке</b> (если настроен Firebase в <code>firebase-config.js</code>). Кнопки JSON — для резервной копии.</p>
     <input type="file" id="import-file" accept=".json,application/json">
   </div>
 
@@ -191,6 +198,9 @@
     </div>
   </div>
 
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
   (function () {
@@ -291,6 +301,105 @@
       return total;
     }
 
+    function encodePlayerKey(name) {
+      return name.replace(/[.#$/\[\]]/g, '_');
+    }
+
+    function updateCloudStatus(state) {
+      const el = document.getElementById('cloud-status');
+      if (!el) return;
+      if (state === 'online') {
+        el.className = 'online';
+        el.textContent = '☁ Общий рейтинг онлайн — все игроки видят одни очки';
+      } else if (state === 'offline') {
+        el.className = 'offline';
+        el.textContent = '⚠ Облако не настроено — только этот браузер (см. firebase-config.js)';
+      } else {
+        el.className = '';
+        el.textContent = '☁ Загрузка рейтинга...';
+      }
+    }
+
+    // ─── Облачное хранилище (Firebase Realtime Database) ───
+    const CloudStore = {
+      db: null,
+      ready: false,
+      syncTimer: null,
+
+      init() {
+        const cfg = window.FIREBASE_CONFIG;
+        if (!cfg || !cfg.apiKey || !cfg.databaseURL) {
+          updateCloudStatus('offline');
+          return false;
+        }
+        try {
+          if (!firebase.apps.length) firebase.initializeApp(cfg);
+          this.db = firebase.database();
+          this.ready = true;
+          updateCloudStatus('online');
+          return true;
+        } catch (e) {
+          console.warn('Firebase init failed', e);
+          updateCloudStatus('offline');
+          return false;
+        }
+      },
+
+      async fetchAll() {
+        if (!this.ready) return null;
+        const snap = await this.db.ref('leaderboard').once('value');
+        return snap.val();
+      },
+
+      syncPlayer(name, playerData) {
+        if (!this.ready) return;
+        const key = encodePlayerKey(name);
+        this.db.ref(`leaderboard/players/${key}`).set({
+          displayName: name,
+          ...playerData,
+        }).catch(e => console.warn('Cloud sync error', e));
+      },
+
+      pushHistory(entry) {
+        if (!this.ready) return;
+        this.db.ref('leaderboard/history').push(entry).catch(e => console.warn('History push error', e));
+      },
+
+      syncFull(data) {
+        if (!this.ready) return;
+        clearTimeout(this.syncTimer);
+        this.syncTimer = setTimeout(() => {
+          const payload = {
+            version: data.version,
+            players: {},
+            updatedAt: new Date().toISOString(),
+          };
+          for (const [name, p] of Object.entries(data.players)) {
+            payload.players[encodePlayerKey(name)] = { displayName: name, ...p };
+          }
+          this.db.ref('leaderboard/meta').set(payload).catch(e => console.warn('Full sync error', e));
+        }, 800);
+      },
+
+      listen(callback) {
+        if (!this.ready) return;
+        this.db.ref('leaderboard/players').on('value', snap => {
+          const raw = snap.val();
+          if (!raw) return;
+          const players = {};
+          for (const rec of Object.values(raw)) {
+            const name = rec.displayName || 'Игрок';
+            players[name] = {
+              unlockedLevel: rec.unlockedLevel || 1,
+              levels: rec.levels || {},
+              totalBestScore: rec.totalBestScore || 0,
+            };
+          }
+          callback(players);
+        });
+      },
+    };
+
     const ScoreManager = {
       data: emptyData(),
 
@@ -304,17 +413,56 @@
 
       save() {
         localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.data, null, 2));
+        CloudStore.syncFull(this.data);
       },
 
       async loadRemote() {
+        if (CloudStore.ready) {
+          try {
+            const cloud = await CloudStore.fetchAll();
+            if (cloud) {
+              const players = {};
+              if (cloud.players) {
+                for (const rec of Object.values(cloud.players)) {
+                  const name = rec.displayName || 'Игрок';
+                  players[name] = {
+                    unlockedLevel: rec.unlockedLevel || 1,
+                    levels: rec.levels || {},
+                    totalBestScore: rec.totalBestScore || 0,
+                  };
+                }
+              }
+              const history = cloud.history ? Object.values(cloud.history) : [];
+              this.merge({ players, history });
+              this.saveLocalOnly();
+            }
+            CloudStore.listen(players => {
+              this.merge({ players });
+              this.saveLocalOnly();
+              if (screens.menu.classList.contains('active')) renderMenu();
+              if (screens.leaderboard.classList.contains('active')) {
+                const active = document.querySelector('.tab.active');
+                renderLeaderboard(active?.textContent?.startsWith('Ур') ? active.textContent.replace('Ур.', '') : 'overall');
+              }
+            });
+          } catch (e) {
+            console.warn('Cloud load failed', e);
+          }
+          return;
+        }
         try {
           const res = await fetch('leaderboard.json?t=' + Date.now());
           if (res.ok) {
             const remote = await res.json();
             this.merge(remote);
-            this.save();
+            this.saveLocalOnly();
           }
-        } catch { /* offline or no file */ }
+        } catch { /* offline */ }
+        updateCloudStatus('offline');
+      },
+
+      saveLocalOnly() {
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(this.data, null, 2));
       },
 
       merge(other) {
@@ -402,6 +550,11 @@
         });
         if (this.data.history.length > 500) this.data.history.length = 500;
         this.save();
+        CloudStore.syncPlayer(name, p);
+        CloudStore.pushHistory({
+          player: name, level: levelId, score,
+          time: Math.round(timeSec * 10) / 10, at: new Date().toISOString(),
+        });
         return { score, isBest, bestScore: p.levels[key].bestScore };
       },
 
@@ -439,6 +592,9 @@
             const imported = JSON.parse(reader.result);
             this.merge(imported);
             this.save();
+            for (const [name, p] of Object.entries(this.data.players)) {
+              CloudStore.syncPlayer(name, p);
+            }
             alert('Рейтинг успешно загружен и объединён!');
             renderMenu();
           } catch {
@@ -897,6 +1053,7 @@
     //  СТАРТ
     // ═══════════════════════════════════════════════════════════
     ScoreManager.load();
+    CloudStore.init();
     ScoreManager.loadRemote();
     setupJoystick();
 

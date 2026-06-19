@@ -132,7 +132,6 @@
     .lb-table tr:nth-child(3) td:first-child::before { content: '🥉 '; }
     .lb-empty { color: #667; text-align: center; padding: 2rem; }
     .file-hint { font-size: 0.78rem; color: #667; text-align: center; margin-top: 1rem; max-width: 480px; line-height: 1.5; }
-    #import-file { display: none; }
     #cloud-status {
       font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 20px; margin-bottom: 0.75rem;
       background: rgba(40,50,70,0.6); color: #8899bb;
@@ -162,12 +161,9 @@
     <div class="level-grid" id="level-grid"></div>
     <div class="toolbar">
       <button class="btn btn-secondary btn-sm" id="btn-leaderboard">Рейтинг</button>
-      <button class="btn btn-ghost btn-sm" id="btn-export">Скачать JSON</button>
-      <button class="btn btn-ghost btn-sm" id="btn-import">Загрузить JSON</button>
       <button class="btn btn-ghost btn-sm" id="btn-change-name">Сменить имя</button>
     </div>
-    <p class="file-hint">Очки всех игроков сохраняются в <b>облаке</b> (если настроен Firebase в <code>firebase-config.js</code>). Кнопки JSON — для резервной копии.</p>
-    <input type="file" id="import-file" accept=".json,application/json">
+    <p class="file-hint">Очки всех игроков сохраняются в облаке автоматически.</p>
   </div>
 
   <!-- Рейтинг -->
@@ -586,34 +582,6 @@
           })
           .filter(Boolean)
           .sort((a, b) => b.score - a.score || a.time - b.time);
-      },
-
-      exportJSON() {
-        const blob = new Blob([JSON.stringify(this.data, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'leaderboard.json';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      },
-
-      importJSON(file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const imported = JSON.parse(reader.result);
-            this.merge(imported);
-            this.save();
-            for (const [name, p] of Object.entries(this.data.players)) {
-              CloudStore.syncPlayer(name, p);
-            }
-            alert('Рейтинг успешно загружен и объединён!');
-            renderMenu();
-          } catch {
-            alert('Ошибка: неверный формат JSON');
-          }
-        };
-        reader.readAsText(file);
       },
     };
 
@@ -1043,13 +1011,6 @@
 
     document.getElementById('btn-next-level').addEventListener('click', () => {
       if (currentLevel < 10) startLevel(currentLevel + 1);
-    });
-
-    document.getElementById('btn-export').addEventListener('click', () => ScoreManager.exportJSON());
-    document.getElementById('btn-import').addEventListener('click', () => document.getElementById('import-file').click());
-    document.getElementById('import-file').addEventListener('change', e => {
-      if (e.target.files[0]) ScoreManager.importJSON(e.target.files[0]);
-      e.target.value = '';
     });
 
     window.addEventListener('keydown', e => {

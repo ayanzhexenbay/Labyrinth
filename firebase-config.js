@@ -22,11 +22,12 @@
 //  После этого очки ВСЕХ игроков сохраняются в облаке автоматически.
 
 window.FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  databaseURL: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: "AIzaSyCuKCcMI-DtMvbVKk6BTVnjoqrfyCRXF7M",
+  authDomain: "labyrinth-7aaf8.firebaseapp.com",
+  databaseURL: "https://labyrinth-7aaf8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "labyrinth-7aaf8",
+  storageBucket: "labyrinth-7aaf8.firebasestorage.app",
+  messagingSenderId: "1033065341306",
+  appId: "1:1033065341306:web:83efb253cb5012409f76c3",
+  measurementId: "G-RN3N2FC860"
 };

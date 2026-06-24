@@ -138,6 +138,16 @@
     }
     #cloud-status.online { color: #4eff91; background: rgba(30,80,50,0.35); }
     #cloud-status.offline { color: #ffaa66; }
+    .site-footer {
+      position: fixed; bottom: max(12px, env(safe-area-inset-bottom));
+      left: 0; right: 0; text-align: center; z-index: 25; pointer-events: none;
+    }
+    .site-footer a {
+      pointer-events: auto; color: #6bcf8e; text-decoration: none; font-size: 0.88rem;
+      padding: 0.4rem 0.9rem; border-radius: 20px;
+      background: rgba(20, 40, 30, 0.75); border: 1px solid rgba(107, 207, 142, 0.35);
+    }
+    .site-footer a:hover { background: rgba(30, 60, 45, 0.9); }
   </style>
 </head>
 <body>
@@ -151,6 +161,7 @@
       <input type="text" id="player-name" placeholder="Введите имя игрока" maxlength="24" autocomplete="nickname">
       <button class="btn btn-primary" id="btn-start">Начать игру</button>
     </div>
+    <footer class="site-footer"><a href="https://ayanzhexenbay.github.io/Ukrop/">🌿 Укроп</a></footer>
   </div>
 
   <!-- Меню уровней -->
@@ -164,6 +175,7 @@
       <button class="btn btn-ghost btn-sm" id="btn-change-name">Сменить имя</button>
     </div>
     <p class="file-hint">Очки всех игроков сохраняются в облаке автоматически.</p>
+    <footer class="site-footer"><a href="https://ayanzhexenbay.github.io/Ukrop/">🌿 Укроп</a></footer>
   </div>
 
   <!-- Рейтинг -->
